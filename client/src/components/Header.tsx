@@ -40,32 +40,30 @@ export function Header() {
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
           {/* Logo */}
-          <Link href="/">
-            <a className="flex items-center gap-2 font-bold text-lg hover:opacity-80 transition-opacity">
-              <div className="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center text-white font-bold">
-                LI
-              </div>
-              <span>MODAPTS Analyzer</span>
-            </a>
+          <Link href="/" className="flex items-center gap-2 font-bold text-lg hover:opacity-80 transition-opacity">
+            <div className="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center text-white font-bold">
+              LI
+            </div>
+            <span>MODAPTS Analyzer</span>
           </Link>
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-1">
             {navItems.map((item) => (
-              <Link key={item.path} href={item.path}>
-                <a
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    isActive(item.path)
-                      ? "bg-blue-500 text-white"
-                      : theme === "light"
-                        ? "text-gray-700 hover:bg-gray-100"
-                        : theme === "dark"
-                          ? "text-gray-300 hover:bg-slate-800"
-                          : "text-gray-300 hover:bg-slate-700"
-                  }`}
-                >
-                  {item.label}
-                </a>
+              <Link
+                key={item.path}
+                href={item.path}
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  isActive(item.path)
+                    ? "bg-blue-500 text-white"
+                    : theme === "light"
+                      ? "text-gray-700 hover:bg-gray-100"
+                      : theme === "dark"
+                        ? "text-gray-300 hover:bg-slate-800"
+                        : "text-gray-300 hover:bg-slate-700"
+                }`}
+              >
+                {item.label}
               </Link>
             ))}
           </nav>
@@ -111,21 +109,21 @@ export function Header() {
         {mobileMenuOpen && (
           <nav className="md:hidden mt-4 flex flex-col gap-2 border-t pt-4">
             {navItems.map((item) => (
-              <Link key={item.path} href={item.path}>
-                <a
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors block ${
-                    isActive(item.path)
-                      ? "bg-blue-500 text-white"
-                      : theme === "light"
-                        ? "text-gray-700 hover:bg-gray-100"
-                        : theme === "dark"
-                          ? "text-gray-300 hover:bg-slate-800"
-                          : "text-gray-300 hover:bg-slate-700"
-                  }`}
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  {item.label}
-                </a>
+              <Link
+                key={item.path}
+                href={item.path}
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors block ${
+                  isActive(item.path)
+                    ? "bg-blue-500 text-white"
+                    : theme === "light"
+                      ? "text-gray-700 hover:bg-gray-100"
+                      : theme === "dark"
+                        ? "text-gray-300 hover:bg-slate-800"
+                        : "text-gray-300 hover:bg-slate-700"
+                }`}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                {item.label}
               </Link>
             ))}
           </nav>
