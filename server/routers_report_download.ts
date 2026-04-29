@@ -3,6 +3,9 @@ import { protectedProcedure, router } from "./_core/trpc";
 import { TRPCError } from "@trpc/server";
 import { generateHtmlReport, generateCsvReport, generateExcelReport } from "./report_generator";
 import type { MotionEventData, ProjectReportData } from "./report_generator";
+import { getDb } from "./db";
+import { eq } from "drizzle-orm";
+import { projects, motionEvents } from "../drizzle/schema";
 
 export const reportDownloadRouter = router({
   /**
@@ -12,24 +15,67 @@ export const reportDownloadRouter = router({
     .input(z.object({ projectId: z.number() }))
     .query(async ({ input, ctx }) => {
       try {
-        // TODO: Fetch project and motion events from database
-        // For now, return placeholder data
-        const mockData: ProjectReportData = {
+        const db = await getDb();
+        if (!db) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Database connection failed",
+          });
+        }
+
+        // Fetch project data
+        const projectData = await db
+          .select()
+          .from(projects)
+          .where(eq(projects.id, input.projectId))
+          .limit(1);
+
+        if (!projectData || projectData.length === 0) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Project not found",
+          });
+        }
+
+        const project = projectData[0];
+
+        // Fetch motion events
+        const motionEventsData = await db
+          .select()
+          .from(motionEvents)
+          .where(eq(motionEvents.projectId, input.projectId));
+
+        // Transform motion events to report format
+        const reportMotionEvents: MotionEventData[] = motionEventsData.map((event) => ({
+          sequence: event.sequenceNumber,
+          code: event.modaptsCode,
+          modValue: event.modValue,
+          timeSeconds: parseFloat(event.timeSeconds),
+          description: event.description || "",
+          bodyPart: event.bodyPart || "Unknown",
+          confidence: parseInt(event.confidence || "0"),
+        }));
+
+        // Calculate totals
+        const totalMods = reportMotionEvents.reduce((sum, e) => sum + e.modValue, 0);
+        const totalTimeSeconds = reportMotionEvents.reduce((sum, e) => sum + e.timeSeconds, 0);
+
+        const reportData: ProjectReportData = {
           projectId: input.projectId,
-          projectName: `프로젝트 #${input.projectId}`,
-          createdAt: new Date(),
-          totalEvents: 0,
-          totalMods: 0,
-          totalTimeSeconds: 0,
-          motionEvents: [],
+          projectName: project.title,
+          createdAt: project.createdAt,
+          totalEvents: reportMotionEvents.length,
+          totalMods,
+          totalTimeSeconds,
+          motionEvents: reportMotionEvents,
         };
 
-        const htmlContent = generateHtmlReport(mockData);
+        const htmlContent = generateHtmlReport(reportData);
 
         return {
           format: "html",
           content: htmlContent,
-          filename: `report-${input.projectId}.html`,
+          filename: `report-${input.projectId}-${Date.now()}.html`,
           mimeType: "text/html",
         };
       } catch (error) {
@@ -48,23 +94,67 @@ export const reportDownloadRouter = router({
     .input(z.object({ projectId: z.number() }))
     .query(async ({ input, ctx }) => {
       try {
-        // TODO: Fetch project and motion events from database
-        const mockData: ProjectReportData = {
+        const db = await getDb();
+        if (!db) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Database connection failed",
+          });
+        }
+
+        // Fetch project data
+        const projectData = await db
+          .select()
+          .from(projects)
+          .where(eq(projects.id, input.projectId))
+          .limit(1);
+
+        if (!projectData || projectData.length === 0) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Project not found",
+          });
+        }
+
+        const project = projectData[0];
+
+        // Fetch motion events
+        const motionEventsData = await db
+          .select()
+          .from(motionEvents)
+          .where(eq(motionEvents.projectId, input.projectId));
+
+        // Transform motion events to report format
+        const reportMotionEvents: MotionEventData[] = motionEventsData.map((event) => ({
+          sequence: event.sequenceNumber,
+          code: event.modaptsCode,
+          modValue: event.modValue,
+          timeSeconds: parseFloat(event.timeSeconds),
+          description: event.description || "",
+          bodyPart: event.bodyPart || "Unknown",
+          confidence: parseInt(event.confidence || "0"),
+        }));
+
+        // Calculate totals
+        const totalMods = reportMotionEvents.reduce((sum, e) => sum + e.modValue, 0);
+        const totalTimeSeconds = reportMotionEvents.reduce((sum, e) => sum + e.timeSeconds, 0);
+
+        const reportData: ProjectReportData = {
           projectId: input.projectId,
-          projectName: `프로젝트 #${input.projectId}`,
-          createdAt: new Date(),
-          totalEvents: 0,
-          totalMods: 0,
-          totalTimeSeconds: 0,
-          motionEvents: [],
+          projectName: project.title,
+          createdAt: project.createdAt,
+          totalEvents: reportMotionEvents.length,
+          totalMods,
+          totalTimeSeconds,
+          motionEvents: reportMotionEvents,
         };
 
-        const csvContent = generateCsvReport(mockData);
+        const csvContent = generateCsvReport(reportData);
 
         return {
           format: "csv",
           content: csvContent,
-          filename: `report-${input.projectId}.csv`,
+          filename: `report-${input.projectId}-${Date.now()}.csv`,
           mimeType: "text/csv",
         };
       } catch (error) {
@@ -83,23 +173,67 @@ export const reportDownloadRouter = router({
     .input(z.object({ projectId: z.number() }))
     .query(async ({ input, ctx }) => {
       try {
-        // TODO: Fetch project and motion events from database
-        const mockData: ProjectReportData = {
+        const db = await getDb();
+        if (!db) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Database connection failed",
+          });
+        }
+
+        // Fetch project data
+        const projectData = await db
+          .select()
+          .from(projects)
+          .where(eq(projects.id, input.projectId))
+          .limit(1);
+
+        if (!projectData || projectData.length === 0) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Project not found",
+          });
+        }
+
+        const project = projectData[0];
+
+        // Fetch motion events
+        const motionEventsData = await db
+          .select()
+          .from(motionEvents)
+          .where(eq(motionEvents.projectId, input.projectId));
+
+        // Transform motion events to report format
+        const reportMotionEvents: MotionEventData[] = motionEventsData.map((event) => ({
+          sequence: event.sequenceNumber,
+          code: event.modaptsCode,
+          modValue: event.modValue,
+          timeSeconds: parseFloat(event.timeSeconds),
+          description: event.description || "",
+          bodyPart: event.bodyPart || "Unknown",
+          confidence: parseInt(event.confidence || "0"),
+        }));
+
+        // Calculate totals
+        const totalMods = reportMotionEvents.reduce((sum, e) => sum + e.modValue, 0);
+        const totalTimeSeconds = reportMotionEvents.reduce((sum, e) => sum + e.timeSeconds, 0);
+
+        const reportData: ProjectReportData = {
           projectId: input.projectId,
-          projectName: `프로젝트 #${input.projectId}`,
-          createdAt: new Date(),
-          totalEvents: 0,
-          totalMods: 0,
-          totalTimeSeconds: 0,
-          motionEvents: [],
+          projectName: project.title,
+          createdAt: project.createdAt,
+          totalEvents: reportMotionEvents.length,
+          totalMods,
+          totalTimeSeconds,
+          motionEvents: reportMotionEvents,
         };
 
-        const excelBuffer = generateExcelReport(mockData);
+        const excelBuffer = generateExcelReport(reportData);
 
         return {
           format: "xlsx",
           content: excelBuffer.toString("base64"),
-          filename: `report-${input.projectId}.xlsx`,
+          filename: `report-${input.projectId}-${Date.now()}.xlsx`,
           mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         };
       } catch (error) {
@@ -117,11 +251,41 @@ export const reportDownloadRouter = router({
   getStatus: protectedProcedure
     .input(z.object({ projectId: z.number(), format: z.enum(["html", "csv", "xlsx"]) }))
     .query(async ({ input, ctx }) => {
-      return {
-        projectId: input.projectId,
-        format: input.format,
-        status: "ready",
-        message: "Report is ready for download",
-      };
+      try {
+        const db = await getDb();
+        if (!db) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Database connection failed",
+          });
+        }
+
+        // Check if project exists
+        const projectData = await db
+          .select()
+          .from(projects)
+          .where(eq(projects.id, input.projectId))
+          .limit(1);
+
+        if (!projectData || projectData.length === 0) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Project not found",
+          });
+        }
+
+        return {
+          projectId: input.projectId,
+          format: input.format,
+          status: "ready",
+          message: "Report is ready for download",
+        };
+      } catch (error) {
+        console.error("Error checking report status:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to check report status",
+        });
+      }
     }),
 });

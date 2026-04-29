@@ -1,5 +1,6 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Header } from "@/components/Header";
 import NotFound from "@/pages/NotFound";
 import Home from "@/pages/Home";
 import Upload from "@/pages/Upload";
@@ -30,7 +31,10 @@ function App() {
         <ThemeProvider defaultTheme="dark">
           <TooltipProvider>
             <Toaster />
-            <Router />
+            <Header />
+            <main className="min-h-screen">
+              <Router />
+            </main>
           </TooltipProvider>
         </ThemeProvider>
       </LanguageProvider>
