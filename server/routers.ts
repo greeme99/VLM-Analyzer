@@ -5,6 +5,7 @@ import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { z } from "zod";
 import * as db from "./db";
 import { storagePut } from "./storage";
+import { analysisRouter } from "./routers_analysis";
 
 export const appRouter = router({
   system: systemRouter,
@@ -30,21 +31,25 @@ export const appRouter = router({
       .input(z.object({
         title: z.string().min(1, "Title is required"),
         description: z.string().optional(),
+        videoUrl: z.string().optional(),
+        videoKey: z.string().optional(),
+        videoDuration: z.string().optional(),
       }))
       .mutation(async ({ ctx, input }) => {
         try {
-          await db.createProject({
+          const result = await db.createProject({
             userId: ctx.user.id,
             title: input.title,
             description: input.description,
-            videoUrl: "",
-            videoKey: "",
-            videoDuration: 0,
+            videoUrl: input.videoUrl || "",
+            videoKey: input.videoKey || "",
+            videoDuration: input.videoDuration ? parseInt(input.videoDuration) : 0,
             status: "pending",
           });
           return {
             success: true,
             message: "Project created",
+            id: result.id,
           };
         } catch (error) {
           console.error("Error creating project:", error);
@@ -510,6 +515,11 @@ export const appRouter = router({
         };
       }),
   }),
+
+  // ============================================================================
+  // Analysis (Gemini 2.5 Flash)
+  // ============================================================================
+  analysis: analysisRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import { useState, useRef } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -48,6 +48,10 @@ export default function UploadPage() {
 
   const t = (key: string) => getTranslation(language, key);
 
+  // tRPC mutations
+  const createProjectMutation = trpc.project.create.useMutation();
+  const startAnalysisMutation = trpc.analysis.startAnalysis.useMutation();
+
   // Redirect if not authenticated
   if (!isAuthenticated) {
     return (
@@ -90,10 +94,10 @@ export default function UploadPage() {
   };
 
   const handleFileSelect = (file: File) => {
-    const validTypes = ["video/mp4", "video/quicktime", "video/x-msvideo", "video/x-matroska"];
+    const supportedFormats = ["video/mp4", "video/x-msvideo", "video/quicktime", "video/x-matroska", "video/x-flv"];
     const maxSize = 500 * 1024 * 1024; // 500MB
 
-    if (!validTypes.includes(file.type)) {
+    if (!supportedFormats.includes(file.type)) {
       setError(t("upload.invalidFormat"));
       return;
     }
@@ -125,37 +129,62 @@ export default function UploadPage() {
     setError(null);
 
     try {
-      // Step 1: Video Encoding
+      // Step 1: Prepare video data
       setAnalysisStep(1);
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const videoDataUrl = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target?.result as string);
+        reader.readAsDataURL(selectedFile);
+      });
 
-      // Step 2: Tokenization
+      // Step 2: Create Project
       setAnalysisStep(2);
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const projectResult = await createProjectMutation.mutateAsync({
+        title: selectedFile.name.replace(/\.[^.]*$/, ""),
+        description: analysisPrompt,
+        videoUrl: videoDataUrl,
+        videoKey: `video-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        videoDuration: "0", // Will be calculated by backend
+      });
 
-      // Step 3: Analysis
+      if (!projectResult.id) {
+        throw new Error("Failed to create project");
+      }
+
+      // Step 3: Start Analysis with Gemini
       setAnalysisStep(3);
-      
-      // Mock analysis results
-      const mockResults = [
-        { time: "0:00-0:05", action: "준비 자세", confidence: 0.95 },
-        { time: "0:05-0:12", action: "동작 수행", confidence: 0.88 },
-        { time: "0:12-0:18", action: "마무리", confidence: 0.92 },
-      ];
+      const analysisResult = await startAnalysisMutation.mutateAsync({
+        projectId: projectResult.id,
+        videoUrl: videoDataUrl,
+        analysisPrompt: analysisPrompt,
+      });
 
-      const mockConfidence = [
-        { name: "준비 자세", value: 95 },
-        { name: "동작 수행", value: 88 },
-        { name: "마무리", value: 92 },
-      ];
+      // Convert motion events to display format
+      const displayResults = analysisResult.analysis?.motions?.map((motion: any) => ({
+        time: motion.timeRange,
+        action: motion.description,
+        confidence: motion.confidence,
+      })) || [];
 
-      setAnalysisResults(mockResults);
-      setConfidenceData(mockConfidence);
+      const confidenceChartData = analysisResult.analysis?.motions?.map((motion: any) => ({
+        name: motion.description,
+        value: Math.round(motion.confidence * 100),
+      })) || [];
+
+      setAnalysisResults(displayResults);
+      setConfidenceData(confidenceChartData);
 
       toast.success(t("upload.analysisComplete"));
+
+      // Redirect to project detail page after 2 seconds
+      setTimeout(() => {
+        setLocation(`/projects/${projectResult.id}`);
+      }, 2000);
     } catch (err) {
-      setError(t("upload.analysisFailed"));
-      toast.error(t("upload.analysisFailed"));
+      const errorMessage = err instanceof Error ? err.message : t("upload.analysisFailed");
+      setError(errorMessage);
+      toast.error(errorMessage);
+      console.error("Analysis error:", err);
     } finally {
       setIsAnalyzing(false);
     }
@@ -200,75 +229,52 @@ export default function UploadPage() {
                   onDragLeave={handleDragLeave}
                   onDrop={handleDrop}
                   onClick={() => fileInputRef.current?.click()}
-                  className="text-center cursor-pointer transition-all"
+                  className="cursor-pointer text-center space-y-4"
                 >
-                  {videoPreview ? (
-                    <div className="space-y-4">
-                      <video
-                        src={videoPreview}
-                        className="w-full h-40 rounded-lg object-cover"
-                        controls
-                      />
-                      <div className="text-sm">
-                        <p className="font-semibold">{selectedFile?.name}</p>
-                        <p className="text-muted-foreground">
-                          {(selectedFile?.size || 0) / 1024 / 1024 > 0
-                            ? `${((selectedFile?.size || 0) / 1024 / 1024).toFixed(2)} MB`
-                            : ""}
-                        </p>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedFile(null);
-                          setVideoPreview(null);
-                        }}
-                      >
-                        {t("upload.changeFile")}
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <UploadIcon className="h-12 w-12 mx-auto text-blue-500 opacity-50" />
-                      <div>
-                        <p className="font-semibold text-foreground">
-                          {t("upload.dragDrop")}
-                        </p>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {t("upload.supportedFormats")}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="video/*"
-                    onChange={(e) => {
-                      if (e.target.files?.[0]) {
-                        handleFileSelect(e.target.files[0]);
-                      }
-                    }}
-                    className="hidden"
-                  />
+                  <UploadIcon className="h-12 w-12 mx-auto text-gray-400" />
+                  <div>
+                    <p className="font-semibold">{t("upload.dragDrop")}</p>
+                    <p className="text-sm text-gray-500">{t("upload.supportedFormats")}</p>
+                  </div>
                 </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="video/*"
+                  onChange={(e) => e.target.files && handleFileSelect(e.target.files[0])}
+                  className="hidden"
+                />
               </CardContent>
             </Card>
+
+            {/* Video Preview */}
+            {videoPreview && (
+              <Card>
+                <CardContent className="p-4">
+                  <video
+                    src={videoPreview}
+                    className="w-full h-auto rounded-lg"
+                    controls
+                  />
+                  <div className="mt-4 text-sm">
+                    <p className="font-semibold">{selectedFile?.name}</p>
+                    <p className="text-gray-500">
+                      {(selectedFile?.size || 0) / 1024 / 1024 > 0 
+                        ? `${((selectedFile?.size || 0) / 1024 / 1024).toFixed(2)} MB`
+                        : "0 MB"}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Analysis Prompt */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Brain className="h-5 w-5 text-blue-500" />
-                  {t("upload.analysisPrompt")}
-                </CardTitle>
-                <CardDescription>
-                  {t("upload.analysisPromptDesc")}
-                </CardDescription>
+                <CardTitle className="text-base">{t("upload.analysisPrompt")}</CardTitle>
+                <CardDescription>{t("upload.analysisPromptDesc")}</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent>
                 <Textarea
                   placeholder={t("upload.promptPlaceholder")}
                   value={analysisPrompt}
@@ -278,45 +284,12 @@ export default function UploadPage() {
               </CardContent>
             </Card>
 
-            {/* Error Alert */}
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-
-            {/* Analysis Progress */}
-            {isAnalyzing && (
-              <Card>
-                <CardContent className="pt-6 space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="font-semibold">
-                        {analysisStep === 1 && t("upload.step1")}
-                        {analysisStep === 2 && t("upload.step2")}
-                        {analysisStep === 3 && t("upload.step3")}
-                      </span>
-                      <span className="text-muted-foreground">
-                        {analysisStep * 33}%
-                      </span>
-                    </div>
-                    <Progress value={analysisStep * 33} className="h-2" />
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    {t("upload.analyzing")}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Analysis Start Button */}
+            {/* Start Button */}
             <Button
               onClick={handleAnalysisStart}
               disabled={!selectedFile || !analysisPrompt.trim() || isAnalyzing}
+              className="w-full"
               size="lg"
-              className="w-full bg-blue-500 hover:bg-blue-600 text-white"
             >
               {isAnalyzing ? (
                 <>
@@ -330,129 +303,87 @@ export default function UploadPage() {
                 </>
               )}
             </Button>
+
+            {/* Error Alert */}
+            {error && (
+              <Alert className="border-red-500 bg-red-50">
+                <AlertCircle className="h-4 w-4 text-red-600" />
+                <AlertDescription className="text-red-600">{error}</AlertDescription>
+              </Alert>
+            )}
           </div>
 
-          {/* Right Column: Analysis Results & Dashboard */}
+          {/* Right Column: Analysis Progress & Results */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Real-time Motion Labeling */}
-            {analysisResults.length > 0 && (
+            {/* Progress */}
+            {isAnalyzing && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <BarChart3 className="h-5 w-5 text-blue-500" />
-                    {t("upload.analysisResults")}
-                  </CardTitle>
-                  <CardDescription>
-                    {t("upload.motionLabeling")}
-                  </CardDescription>
+                  <CardTitle className="text-base">{t("upload.analyzing")}</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {analysisResults.map((result, idx) => (
-                      <div
-                        key={idx}
-                        className={`p-4 rounded-lg border transition-all ${
-                          theme === "light"
-                            ? "bg-gray-50 border-gray-200"
-                            : theme === "dark"
-                              ? "bg-slate-800 border-slate-700"
-                              : "bg-blue-100/50 border-blue-200"
-                        }`}
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <p className="text-sm font-semibold text-blue-500">
-                              {result.time}
-                            </p>
-                            <p className="text-foreground font-medium mt-1">
-                              {result.action}
-                            </p>
+                <CardContent className="space-y-4">
+                  <div>
+                    <div className="flex justify-between mb-2">
+                      <span className="text-sm font-medium">
+                        {analysisStep === 1 && t("upload.step1")}
+                        {analysisStep === 2 && t("upload.step2")}
+                        {analysisStep === 3 && t("upload.step3")}
+                      </span>
+                      <span className="text-sm text-gray-500">{analysisStep}/3</span>
+                    </div>
+                    <Progress value={(analysisStep / 3) * 100} className="h-2" />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Results */}
+            {analysisResults.length > 0 && (
+              <>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <CheckCircle2 className="h-5 w-5 text-green-600" />
+                      {t("upload.analysisResults")}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {analysisResults.map((result, idx) => (
+                        <div key={idx} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                          <div>
+                            <p className="font-medium text-sm">{result.action}</p>
+                            <p className="text-xs text-gray-500">{result.time}</p>
                           </div>
                           <div className="text-right">
-                            <div className="flex items-center gap-2">
-                              <div className="w-12 h-1 bg-gradient-to-r from-blue-500 to-emerald-500 rounded-full" />
-                              <span className="text-sm font-semibold text-emerald-500">
-                                {Math.round(result.confidence * 100)}%
-                              </span>
-                            </div>
+                            <p className="font-semibold text-sm">{Math.round(result.confidence * 100)}%</p>
                           </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
 
-            {/* Confidence Chart */}
-            {confidenceData.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <BarChart3 className="h-5 w-5 text-blue-500" />
-                    {t("upload.confidenceChart")}
-                  </CardTitle>
-                  <CardDescription>
-                    {t("upload.confidenceDesc")}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {confidenceData.map((item, idx) => (
-                      <div key={idx} className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span className="font-medium">{item.name}</span>
-                          <span className="text-blue-500 font-semibold">
-                            {item.value}%
-                          </span>
-                        </div>
-                        <div className={`h-2 rounded-full overflow-hidden ${
-                          theme === "light"
-                            ? "bg-gray-200"
-                            : theme === "dark"
-                              ? "bg-slate-700"
-                              : "bg-blue-200"
-                        }`}>
-                          <div
-                            className="h-full bg-gradient-to-r from-blue-500 to-emerald-500 rounded-full transition-all"
-                            style={{ width: `${item.value}%` }}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Download Results */}
-            {analysisResults.length > 0 && (
-              <div className="flex gap-3">
-                <Button variant="outline" className="flex-1">
-                  <Download className="h-4 w-4 mr-2" />
-                  {t("upload.downloadPDF")}
-                </Button>
-                <Button variant="outline" className="flex-1">
-                  <Download className="h-4 w-4 mr-2" />
-                  {t("upload.downloadExcel")}
-                </Button>
-              </div>
+                {/* Download Buttons */}
+                <div className="flex gap-4">
+                  <Button variant="outline" className="flex-1">
+                    <Download className="h-4 w-4 mr-2" />
+                    {t("upload.downloadPDF")}
+                  </Button>
+                  <Button variant="outline" className="flex-1">
+                    <Download className="h-4 w-4 mr-2" />
+                    {t("upload.downloadExcel")}
+                  </Button>
+                </div>
+              </>
             )}
 
             {/* Empty State */}
-            {analysisResults.length === 0 && !isAnalyzing && (
-              <Card className={`border-dashed ${
-                theme === "light"
-                  ? "border-gray-300 bg-gray-50"
-                  : theme === "dark"
-                    ? "border-slate-700 bg-slate-900"
-                    : "border-blue-200 bg-blue-50/30"
-              }`}>
-                <CardContent className="flex flex-col items-center justify-center py-12">
-                  <BarChart3 className="h-12 w-12 text-muted-foreground mb-4 opacity-50" />
-                  <p className="text-muted-foreground text-center">
-                    {t("upload.noResults")}
-                  </p>
+            {!isAnalyzing && analysisResults.length === 0 && (
+              <Card className="border-dashed">
+                <CardContent className="p-12 text-center">
+                  <BarChart3 className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+                  <p className="text-gray-500">{t("upload.noResults")}</p>
                 </CardContent>
               </Card>
             )}
