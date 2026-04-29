@@ -1,144 +1,87 @@
-import { useState, useRef } from "react";
+import React, { useRef, useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Upload as UploadIcon, AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
+import { 
+  Upload as UploadIcon, 
+  AlertCircle, 
+  CheckCircle2, 
+  Loader2,
+  Play,
+  Pause,
+  BarChart3,
+  Brain,
+  Download
+} from "lucide-react";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
+import { getTranslation } from "@/lib/i18n";
 
 /**
- * Upload Page - Video upload and analysis initiation
+ * Upload Page - VLM-based Motion Analysis Platform
+ * AI Workflow: Input (Video/Prompt) -> Processing (Inference) -> Output (Analysis)
  */
 export default function UploadPage() {
   const { user, isAuthenticated } = useAuth();
   const { language } = useLanguage();
+  const { theme } = useTheme();
   const [, setLocation] = useLocation();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dropZoneRef = useRef<HTMLDivElement>(null);
 
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [videoPreview, setVideoPreview] = useState<string | null>(null);
+  const [analysisPrompt, setAnalysisPrompt] = useState("");
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisStep, setAnalysisStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [analysisResults, setAnalysisResults] = useState<any[]>([]);
+  const [confidenceData, setConfidenceData] = useState<any[]>([]);
 
-  const t = {
-    ko: {
-      loginRequired: "로그인이 필요합니다",
-      startAnalysis: "새 분석 시작",
-      projectInfo: "프로젝트 정보",
-      projectInfoDesc: "분석할 프로젝트의 기본 정보를 입력하세요",
-      projectTitle: "프로젝트 제목 *",
-      projectTitlePlaceholder: "예: 조립 공정 분석 - 2026-04-29",
-      description: "설명 (선택사항)",
-      descriptionPlaceholder: "이 분석에 대한 추가 정보를 입력하세요",
-      videoUpload: "영상 파일 업로드",
-      videoUploadDesc: "제조 공정 영상을 업로드하세요 (최대 500MB)",
-      dragDrop: "영상 파일을 드래그하거나 클릭하세요",
-      supportedFormats: "MP4, AVI, MOV, MKV, FLV (최대 500MB)",
-      fileInfo: "파일 정보",
-      fileName: "파일명:",
-      fileSize: "크기:",
-      fileType: "유형:",
-      uploading: "업로드 중...",
-      cancel: "취소",
-      startBtn: "분석 시작",
-      uploadingBtn: "업로드 중...",
-      tip: "팁:",
-      tipText: "최적의 분석 결과를 위해 밝은 환경에서 촬영된 영상을 권장합니다. 한 명의 작업자와 1~3개의 부품을 포함한 30초 이내의 영상이 가장 좋습니다.",
-      errorInvalidFormat: "지원하지 않는 파일 형식입니다. MP4, AVI, MOV, MKV, FLV만 가능합니다.",
-      errorFileTooLarge: "파일 크기가 너무 큽니다. 500MB 이하만 가능합니다.",
-      errorRequired: "제목과 파일을 선택해주세요",
-      errorCreateFailed: "프로젝트 생성 실패",
-      successStarted: "분석이 시작되었습니다!",
-      errorUpload: "업로드 실패",
-    },
-    en: {
-      loginRequired: "Login is required",
-      startAnalysis: "Start New Analysis",
-      projectInfo: "Project Information",
-      projectInfoDesc: "Enter basic information for the project to analyze",
-      projectTitle: "Project Title *",
-      projectTitlePlaceholder: "e.g., Assembly Process Analysis - 2026-04-29",
-      description: "Description (Optional)",
-      descriptionPlaceholder: "Enter additional information about this analysis",
-      videoUpload: "Video File Upload",
-      videoUploadDesc: "Upload manufacturing process video (Max 500MB)",
-      dragDrop: "Drag video file here or click to select",
-      supportedFormats: "MP4, AVI, MOV, MKV, FLV (Max 500MB)",
-      fileInfo: "File Information",
-      fileName: "File name:",
-      fileSize: "Size:",
-      fileType: "Type:",
-      uploading: "Uploading...",
-      cancel: "Cancel",
-      startBtn: "Start Analysis",
-      uploadingBtn: "Uploading...",
-      tip: "Tip:",
-      tipText: "For optimal analysis results, we recommend videos shot in bright environments. Videos of 30 seconds or less with one worker and 1-3 parts work best.",
-      errorInvalidFormat: "Unsupported file format. Only MP4, AVI, MOV, MKV, FLV are supported.",
-      errorFileTooLarge: "File size is too large. Maximum 500MB is allowed.",
-      errorRequired: "Please select a title and file",
-      errorCreateFailed: "Project creation failed",
-      successStarted: "Analysis has started!",
-      errorUpload: "Upload failed",
-    },
-  };
+  const t = (key: string) => getTranslation(language, key);
 
-  const text = t[language];
-
-  const createProjectMutation = trpc.project.create.useMutation();
-
+  // Redirect if not authenticated
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Alert variant="destructive">
+        <Alert className="w-full max-w-md">
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{text.loginRequired}</AlertDescription>
+          <AlertDescription>{t("auth.loginRequired")}</AlertDescription>
         </Alert>
       </div>
     );
   }
 
-  const handleFileSelect = (file: File | null) => {
-    setError(null);
-
-    if (!file) {
-      setSelectedFile(null);
-      return;
-    }
-
-    // Validate file type
-    const validTypes = ["video/mp4", "video/x-msvideo", "video/quicktime", "video/x-matroska", "video/x-flv"];
-    if (!validTypes.includes(file.type)) {
-      setError(text.errorInvalidFormat);
-      return;
-    }
-
-    // Validate file size (500MB max)
-    if (file.size > 500 * 1024 * 1024) {
-      setError(text.errorFileTooLarge);
-      return;
-    }
-
-    setSelectedFile(file);
-  };
-
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (dropZoneRef.current) {
+      dropZoneRef.current.classList.add("border-blue-500", "bg-blue-50/10");
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (dropZoneRef.current) {
+      dropZoneRef.current.classList.remove("border-blue-500", "bg-blue-50/10");
+    }
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (dropZoneRef.current) {
+      dropZoneRef.current.classList.remove("border-blue-500", "bg-blue-50/10");
+    }
 
     const files = e.dataTransfer.files;
     if (files.length > 0) {
@@ -146,206 +89,376 @@ export default function UploadPage() {
     }
   };
 
-  const handleUpload = async () => {
-    if (!selectedFile || !title.trim()) {
-      setError(text.errorRequired);
+  const handleFileSelect = (file: File) => {
+    const validTypes = ["video/mp4", "video/quicktime", "video/x-msvideo", "video/x-matroska"];
+    const maxSize = 500 * 1024 * 1024; // 500MB
+
+    if (!validTypes.includes(file.type)) {
+      setError(t("upload.invalidFormat"));
       return;
     }
 
-    setIsUploading(true);
+    if (file.size > maxSize) {
+      setError(t("upload.fileTooLarge"));
+      return;
+    }
+
+    setSelectedFile(file);
+    setError(null);
+
+    // Create video preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setVideoPreview(e.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleAnalysisStart = async () => {
+    if (!selectedFile || !analysisPrompt.trim()) {
+      setError(t("upload.missingInput"));
+      return;
+    }
+
+    setIsAnalyzing(true);
+    setAnalysisStep(0);
     setError(null);
 
     try {
-      // Create project first
-      const projectResult = await createProjectMutation.mutateAsync({
-        title: title.trim(),
-        description: description.trim() || undefined,
-      });
+      // Step 1: Video Encoding
+      setAnalysisStep(1);
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
-      if (!projectResult.success) {
-        throw new Error(text.errorCreateFailed);
-      }
+      // Step 2: Tokenization
+      setAnalysisStep(2);
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // Simulate upload progress
-      for (let i = 0; i <= 100; i += 10) {
-        setUploadProgress(i);
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
+      // Step 3: Analysis
+      setAnalysisStep(3);
+      
+      // Mock analysis results
+      const mockResults = [
+        { time: "0:00-0:05", action: "준비 자세", confidence: 0.95 },
+        { time: "0:05-0:12", action: "동작 수행", confidence: 0.88 },
+        { time: "0:12-0:18", action: "마무리", confidence: 0.92 },
+      ];
 
-      toast.success(text.successStarted);
-      setLocation("/projects");
+      const mockConfidence = [
+        { name: "준비 자세", value: 95 },
+        { name: "동작 수행", value: 88 },
+        { name: "마무리", value: 92 },
+      ];
+
+      setAnalysisResults(mockResults);
+      setConfidenceData(mockConfidence);
+
+      toast.success(t("upload.analysisComplete"));
     } catch (err) {
-      const message = err instanceof Error ? err.message : text.errorUpload;
-      setError(message);
-      toast.error(message);
+      setError(t("upload.analysisFailed"));
+      toast.error(t("upload.analysisFailed"));
     } finally {
-      setIsUploading(false);
-      setUploadProgress(0);
+      setIsAnalyzing(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border/40 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4">
-          <h1 className="text-2xl font-bold">{text.startAnalysis}</h1>
+    <div className={`min-h-screen transition-colors ${
+      theme === "light"
+        ? "bg-white"
+        : theme === "dark"
+          ? "bg-slate-950"
+          : "bg-blue-50"
+    }`}>
+      <div className="container mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold mb-2 flex items-center gap-3">
+            <Brain className="h-8 w-8 text-blue-500" />
+            {t("nav.upload")}
+          </h1>
+          <p className="text-muted-foreground">
+            {t("upload.videoUploadDesc")}
+          </p>
         </div>
-      </header>
 
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-12">
-        <div className="max-w-2xl mx-auto space-y-8">
-          {/* Project Info */}
-          <Card>
-            <CardHeader>
-              <CardTitle>{text.projectInfo}</CardTitle>
-              <CardDescription>{text.projectInfoDesc}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="title">{text.projectTitle}</Label>
-                <Input
-                  id="title"
-                  placeholder={text.projectTitlePlaceholder}
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  disabled={isUploading}
-                />
-              </div>
+        {/* Main Layout: Two Columns */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column: Input & Settings */}
+          <div className="lg:col-span-1 space-y-6">
+            {/* Dropzone */}
+            <Card className={`border-2 border-dashed transition-all ${
+              theme === "light"
+                ? "border-gray-300 hover:border-blue-400"
+                : theme === "dark"
+                  ? "border-slate-700 hover:border-blue-500"
+                  : "border-blue-200 hover:border-blue-400"
+            }`}>
+              <CardContent className="p-8">
+                <div
+                  ref={dropZoneRef}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="text-center cursor-pointer transition-all"
+                >
+                  {videoPreview ? (
+                    <div className="space-y-4">
+                      <video
+                        src={videoPreview}
+                        className="w-full h-40 rounded-lg object-cover"
+                        controls
+                      />
+                      <div className="text-sm">
+                        <p className="font-semibold">{selectedFile?.name}</p>
+                        <p className="text-muted-foreground">
+                          {(selectedFile?.size || 0) / 1024 / 1024 > 0
+                            ? `${((selectedFile?.size || 0) / 1024 / 1024).toFixed(2)} MB`
+                            : ""}
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedFile(null);
+                          setVideoPreview(null);
+                        }}
+                      >
+                        {t("upload.changeFile")}
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <UploadIcon className="h-12 w-12 mx-auto text-blue-500 opacity-50" />
+                      <div>
+                        <p className="font-semibold text-foreground">
+                          {t("upload.dragDrop")}
+                        </p>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {t("upload.supportedFormats")}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="video/*"
+                    onChange={(e) => {
+                      if (e.target.files?.[0]) {
+                        handleFileSelect(e.target.files[0]);
+                      }
+                    }}
+                    className="hidden"
+                  />
+                </div>
+              </CardContent>
+            </Card>
 
-              <div className="space-y-2">
-                <Label htmlFor="description">{text.description}</Label>
+            {/* Analysis Prompt */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Brain className="h-5 w-5 text-blue-500" />
+                  {t("upload.analysisPrompt")}
+                </CardTitle>
+                <CardDescription>
+                  {t("upload.analysisPromptDesc")}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
                 <Textarea
-                  id="description"
-                  placeholder={text.descriptionPlaceholder}
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  disabled={isUploading}
-                  rows={3}
+                  placeholder={t("upload.promptPlaceholder")}
+                  value={analysisPrompt}
+                  onChange={(e) => setAnalysisPrompt(e.target.value)}
+                  className="min-h-24"
                 />
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
-          {/* File Upload */}
-          <Card>
-            <CardHeader>
-              <CardTitle>{text.videoUpload}</CardTitle>
-              <CardDescription>{text.videoUploadDesc}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Drag and Drop Area */}
-              <div
-                onDragOver={handleDragOver}
-                onDrop={handleDrop}
-                className={`border-2 border-dashed rounded-lg p-12 text-center transition-colors ${
-                  selectedFile
-                    ? "border-green-500 bg-green-50 dark:bg-green-950/20"
-                    : "border-muted-foreground/25 hover:border-muted-foreground/50"
-                } ${isUploading ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
-                onClick={() => !isUploading && fileInputRef.current?.click()}
-              >
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".mp4,.avi,.mov,.mkv,.flv"
-                  onChange={(e) => handleFileSelect(e.target.files?.[0] || null)}
-                  disabled={isUploading}
-                  className="hidden"
-                />
+            {/* Error Alert */}
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
 
-                {selectedFile ? (
+            {/* Analysis Progress */}
+            {isAnalyzing && (
+              <Card>
+                <CardContent className="pt-6 space-y-4">
                   <div className="space-y-2">
-                    <CheckCircle2 className="w-12 h-12 text-green-600 mx-auto" />
-                    <p className="font-semibold">{selectedFile.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
-                    </p>
+                    <div className="flex justify-between text-sm">
+                      <span className="font-semibold">
+                        {analysisStep === 1 && t("upload.step1")}
+                        {analysisStep === 2 && t("upload.step2")}
+                        {analysisStep === 3 && t("upload.step3")}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {analysisStep * 33}%
+                      </span>
+                    </div>
+                    <Progress value={analysisStep * 33} className="h-2" />
                   </div>
-                ) : (
-                  <div className="space-y-2">
-                    <UploadIcon className="w-12 h-12 text-muted-foreground mx-auto" />
-                    <p className="font-semibold">{text.dragDrop}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {text.supportedFormats}
-                    </p>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {t("upload.analyzing")}
                   </div>
-                )}
-              </div>
+                </CardContent>
+              </Card>
+            )}
 
-              {/* Error Message */}
-              {error && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-
-              {/* Upload Progress */}
-              {isUploading && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">{text.uploading}</span>
-                    <span className="text-sm text-muted-foreground">{uploadProgress}%</span>
-                  </div>
-                  <Progress value={uploadProgress} className="h-2" />
-                </div>
-              )}
-
-              {/* File Info */}
-              {selectedFile && !isUploading && (
-                <div className="bg-muted/50 rounded-lg p-4 space-y-2">
-                  <p className="text-sm font-medium">{text.fileInfo}</p>
-                  <dl className="grid grid-cols-2 gap-2 text-sm">
-                    <dt className="text-muted-foreground">{text.fileName}</dt>
-                    <dd className="font-mono">{selectedFile.name}</dd>
-                    <dt className="text-muted-foreground">{text.fileSize}</dt>
-                    <dd>{(selectedFile.size / (1024 * 1024)).toFixed(2)} MB</dd>
-                    <dt className="text-muted-foreground">{text.fileType}</dt>
-                    <dd>{selectedFile.type}</dd>
-                  </dl>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Action Buttons */}
-          <div className="flex gap-4 justify-end">
+            {/* Analysis Start Button */}
             <Button
-              variant="outline"
-              onClick={() => setLocation("/projects")}
-              disabled={isUploading}
+              onClick={handleAnalysisStart}
+              disabled={!selectedFile || !analysisPrompt.trim() || isAnalyzing}
+              size="lg"
+              className="w-full bg-blue-500 hover:bg-blue-600 text-white"
             >
-              {text.cancel}
-            </Button>
-            <Button
-              onClick={handleUpload}
-              disabled={!selectedFile || !title.trim() || isUploading}
-            >
-              {isUploading ? (
+              {isAnalyzing ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  {text.uploadingBtn}
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  {t("upload.analyzing")}
                 </>
               ) : (
                 <>
-                  <UploadIcon className="w-4 h-4 mr-2" />
-                  {text.startBtn}
+                  <Play className="h-4 w-4 mr-2" />
+                  {t("upload.startAnalysis")}
                 </>
               )}
             </Button>
           </div>
 
-          {/* Info Box */}
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              <strong>{text.tip}</strong> {text.tipText}
-            </AlertDescription>
-          </Alert>
+          {/* Right Column: Analysis Results & Dashboard */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Real-time Motion Labeling */}
+            {analysisResults.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5 text-blue-500" />
+                    {t("upload.analysisResults")}
+                  </CardTitle>
+                  <CardDescription>
+                    {t("upload.motionLabeling")}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {analysisResults.map((result, idx) => (
+                      <div
+                        key={idx}
+                        className={`p-4 rounded-lg border transition-all ${
+                          theme === "light"
+                            ? "bg-gray-50 border-gray-200"
+                            : theme === "dark"
+                              ? "bg-slate-800 border-slate-700"
+                              : "bg-blue-100/50 border-blue-200"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold text-blue-500">
+                              {result.time}
+                            </p>
+                            <p className="text-foreground font-medium mt-1">
+                              {result.action}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <div className="flex items-center gap-2">
+                              <div className="w-12 h-1 bg-gradient-to-r from-blue-500 to-emerald-500 rounded-full" />
+                              <span className="text-sm font-semibold text-emerald-500">
+                                {Math.round(result.confidence * 100)}%
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Confidence Chart */}
+            {confidenceData.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5 text-blue-500" />
+                    {t("upload.confidenceChart")}
+                  </CardTitle>
+                  <CardDescription>
+                    {t("upload.confidenceDesc")}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {confidenceData.map((item, idx) => (
+                      <div key={idx} className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="font-medium">{item.name}</span>
+                          <span className="text-blue-500 font-semibold">
+                            {item.value}%
+                          </span>
+                        </div>
+                        <div className={`h-2 rounded-full overflow-hidden ${
+                          theme === "light"
+                            ? "bg-gray-200"
+                            : theme === "dark"
+                              ? "bg-slate-700"
+                              : "bg-blue-200"
+                        }`}>
+                          <div
+                            className="h-full bg-gradient-to-r from-blue-500 to-emerald-500 rounded-full transition-all"
+                            style={{ width: `${item.value}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Download Results */}
+            {analysisResults.length > 0 && (
+              <div className="flex gap-3">
+                <Button variant="outline" className="flex-1">
+                  <Download className="h-4 w-4 mr-2" />
+                  {t("upload.downloadPDF")}
+                </Button>
+                <Button variant="outline" className="flex-1">
+                  <Download className="h-4 w-4 mr-2" />
+                  {t("upload.downloadExcel")}
+                </Button>
+              </div>
+            )}
+
+            {/* Empty State */}
+            {analysisResults.length === 0 && !isAnalyzing && (
+              <Card className={`border-dashed ${
+                theme === "light"
+                  ? "border-gray-300 bg-gray-50"
+                  : theme === "dark"
+                    ? "border-slate-700 bg-slate-900"
+                    : "border-blue-200 bg-blue-50/30"
+              }`}>
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <BarChart3 className="h-12 w-12 text-muted-foreground mb-4 opacity-50" />
+                  <p className="text-muted-foreground text-center">
+                    {t("upload.noResults")}
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 }

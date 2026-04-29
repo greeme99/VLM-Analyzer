@@ -36,7 +36,7 @@ export const translations = {
     upload: {
       title: "영상 업로드",
       dragDrop: "여기에 파일을 드래그하거나 클릭하여 선택하세요",
-      supportedFormats: "지원 형식: MP4, AVI, MOV",
+      supportedFormats: "지원 형식: MP4, AVI, MOV, MKV, FLV (최대 500MB)",
       maxSize: "최대 파일 크기: 500MB",
       projectName: "프로젝트 이름",
       projectNamePlaceholder: "예: 조립 공정 분석",
@@ -47,6 +47,27 @@ export const translations = {
       analyzing: "분석 중...",
       success: "분석이 완료되었습니다",
       error: "업로드 중 오류가 발생했습니다",
+      videoUploadDesc: "제조 공정 영상을 업로드하세요 (최대 500MB)",
+      analysisPrompt: "분석 프롬프트",
+      analysisPromptDesc: "동작 분석의 목적을 입력하세요",
+      promptPlaceholder: "예: 운동 자세 교정, 작업 공정 누락 확인",
+      startAnalysis: "분석 시작",
+      changeFile: "파일 변경",
+      invalidFormat: "지원하지 않는 파일 형식입니다",
+      fileTooLarge: "파일 크기가 500MB를 초과합니다",
+      missingInput: "영상 파일과 분석 프롬프트를 입력해주세요",
+      step1: "영상 인코딩 중...",
+      step2: "토큰화 중...",
+      step3: "분석 중...",
+      analysisComplete: "분석이 완료되었습니다",
+      analysisFailed: "분석 중 오류가 발생했습니다",
+      analysisResults: "분석 결과",
+      motionLabeling: "실시간 동작 라벨링",
+      confidenceChart: "신뢰도 그래프",
+      confidenceDesc: "각 동작의 정확도/확률을 시각화합니다",
+      downloadPDF: "PDF 다운로드",
+      downloadExcel: "Excel 다운로드",
+      noResults: "분석 결과가 없습니다. 영상을 업로드하고 분석을 시작하세요.",
     },
 
     // Projects Page
@@ -143,6 +164,13 @@ export const translations = {
       r2: "읽기 (일반)",
     },
 
+    // Authentication
+    auth: {
+      loginRequired: "로그인이 필요합니다",
+      login: "로그인",
+      logout: "로그아웃",
+    },
+
     // Common
     common: {
       loading: "로딩 중...",
@@ -191,7 +219,7 @@ export const translations = {
     upload: {
       title: "Video Upload",
       dragDrop: "Drag files here or click to select",
-      supportedFormats: "Supported formats: MP4, AVI, MOV",
+      supportedFormats: "Supported formats: MP4, AVI, MOV, MKV, FLV (Max 500MB)",
       maxSize: "Maximum file size: 500MB",
       projectName: "Project Name",
       projectNamePlaceholder: "e.g., Assembly Process Analysis",
@@ -202,6 +230,27 @@ export const translations = {
       analyzing: "Analyzing...",
       success: "Analysis completed",
       error: "An error occurred during upload",
+      videoUploadDesc: "Upload manufacturing process videos (Max 500MB)",
+      analysisPrompt: "Analysis Prompt",
+      analysisPromptDesc: "Enter the purpose of motion analysis",
+      promptPlaceholder: "e.g., Posture correction, Process gap detection",
+      startAnalysis: "Start Analysis",
+      changeFile: "Change File",
+      invalidFormat: "Unsupported file format",
+      fileTooLarge: "File size exceeds 500MB",
+      missingInput: "Please enter video file and analysis prompt",
+      step1: "Video Encoding...",
+      step2: "Tokenization...",
+      step3: "Analyzing...",
+      analysisComplete: "Analysis completed",
+      analysisFailed: "An error occurred during analysis",
+      analysisResults: "Analysis Results",
+      motionLabeling: "Real-time Motion Labeling",
+      confidenceChart: "Confidence Graph",
+      confidenceDesc: "Visualizes accuracy/probability of each motion",
+      downloadPDF: "Download PDF",
+      downloadExcel: "Download Excel",
+      noResults: "No analysis results. Upload a video and start analysis.",
     },
 
     // Projects Page
@@ -298,6 +347,13 @@ export const translations = {
       r2: "Read (Normal)",
     },
 
+    // Authentication
+    auth: {
+      loginRequired: "Login required",
+      login: "Login",
+      logout: "Logout",
+    },
+
     // Common
     common: {
       loading: "Loading...",
@@ -313,7 +369,7 @@ export const translations = {
       prev: "Previous",
       confirm: "Confirm",
       selectLanguage: "Select Language",
-    },
+    }
   },
 };
 
