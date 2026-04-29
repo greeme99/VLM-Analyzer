@@ -1,4 +1,5 @@
 import { useAuth } from "@/_core/hooks/useAuth";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -26,15 +27,91 @@ const MODAPTS_COLORS = {
  */
 export default function ProjectDetailPage() {
   const { isAuthenticated } = useAuth();
+  const { language } = useLanguage();
   const [, setLocation] = useLocation();
   const [match, params] = useRoute("/projects/:id");
+
+  const t = {
+    ko: {
+      loginRequired: "로그인이 필요합니다",
+      projectNotFound: "프로젝트를 찾을 수 없습니다",
+      analysisComplete: "분석 완료",
+      analyzing: "분석 중...",
+      completed: "완료",
+      inProgress: "진행 중",
+      report: "보고서",
+      standardTime: "표준시간",
+      totalMod: "총 MOD",
+      motionCount: "동작 수",
+      avgConfidence: "평균 신뢰도",
+      seconds: "초",
+      mod: "MOD",
+      count: "개",
+      percent: "%",
+      analysisResults: "분석 결과",
+      modDistribution: "MOD 값 분포",
+      modDistributionDesc: "각 동작별 MOD 값",
+      codeDistribution: "코드 유형 분포",
+      codeDistributionDesc: "MODAPTS 코드 유형별 비율",
+      detailsList: "동작 이벤트 상세",
+      detailsListDesc: "분석된 모든 동작 이벤트 목록",
+      sequence: "순번",
+      code: "코드",
+      time: "시간",
+      description: "설명",
+      confidence: "신뢰도",
+      action: "작업",
+      corrections: "보정 이력",
+      correctionsDesc: "수동 보정 기록",
+      corrected: "보정됨",
+      noCorrections: "보정 이력이 없습니다",
+      details: "상세 목록",
+    },
+    en: {
+      loginRequired: "Login is required",
+      projectNotFound: "Project not found",
+      analysisComplete: "Analysis Complete",
+      analyzing: "Analyzing...",
+      completed: "Completed",
+      inProgress: "In Progress",
+      report: "Report",
+      standardTime: "Standard Time",
+      totalMod: "Total MOD",
+      motionCount: "Motion Count",
+      avgConfidence: "Avg Confidence",
+      seconds: "sec",
+      mod: "MOD",
+      count: "items",
+      percent: "%",
+      analysisResults: "Analysis Results",
+      modDistribution: "MOD Value Distribution",
+      modDistributionDesc: "MOD value for each motion",
+      codeDistribution: "Code Type Distribution",
+      codeDistributionDesc: "MODAPTS code type ratio",
+      detailsList: "Motion Event Details",
+      detailsListDesc: "List of all analyzed motion events",
+      sequence: "No.",
+      code: "Code",
+      time: "Time",
+      description: "Description",
+      confidence: "Confidence",
+      action: "Action",
+      corrections: "Correction History",
+      correctionsDesc: "Manual correction records",
+      corrected: "Corrected",
+      noCorrections: "No correction history",
+      details: "Details",
+    },
+  };
+
+  const text = t[language];
 
   if (!isAuthenticated || !match) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>로그인이 필요합니다</AlertDescription>
+          <AlertDescription>{text.loginRequired}</AlertDescription>
         </Alert>
       </div>
     );
@@ -61,7 +138,7 @@ export default function ProjectDetailPage() {
       <div className="min-h-screen flex items-center justify-center">
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>프로젝트를 찾을 수 없습니다</AlertDescription>
+          <AlertDescription>{text.projectNotFound}</AlertDescription>
         </Alert>
       </div>
     );
@@ -99,17 +176,17 @@ export default function ProjectDetailPage() {
             <div>
               <h1 className="text-2xl font-bold">{project.title}</h1>
               <p className="text-sm text-muted-foreground">
-                {project.status === "completed" ? "분석 완료" : "분석 중..."}
+                {project.status === "completed" ? text.analysisComplete : text.analyzing}
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <Badge variant={project.status === "completed" ? "default" : "secondary"}>
-              {project.status === "completed" ? "완료" : "진행 중"}
+              {project.status === "completed" ? text.completed : text.inProgress}
             </Badge>
             <Button variant="outline" size="sm">
               <Download className="w-4 h-4 mr-2" />
-              보고서
+              {text.report}
             </Button>
           </div>
         </div>
@@ -121,14 +198,14 @@ export default function ProjectDetailPage() {
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <SummaryCard
-              label="표준시간"
-              value={project.standardTime ? `${parseFloat(project.standardTime).toFixed(2)}s` : "-"}
-              unit="초"
+              label={text.standardTime}
+              value={project.standardTime ? `${parseFloat(project.standardTime).toFixed(2)}` : "-"}
+              unit={text.seconds}
             />
-            <SummaryCard label="총 MOD" value={project.totalMods || "0"} unit="MOD" />
-            <SummaryCard label="동작 수" value={motionEvents.length.toString()} unit="개" />
+            <SummaryCard label={text.totalMod} value={project.totalMods || "0"} unit={text.mod} />
+            <SummaryCard label={text.motionCount} value={motionEvents.length.toString()} unit={text.count} />
             <SummaryCard
-              label="평균 신뢰도"
+              label={text.avgConfidence}
               value={
                 motionEvents.length > 0
                   ? (
@@ -137,16 +214,16 @@ export default function ProjectDetailPage() {
                     ).toFixed(0)
                   : "0"
               }
-              unit="%"
+              unit={text.percent}
             />
           </div>
 
           {/* Tabs */}
           <Tabs defaultValue="analysis" className="w-full">
             <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="analysis">분석 결과</TabsTrigger>
-              <TabsTrigger value="details">상세 목록</TabsTrigger>
-              <TabsTrigger value="corrections">보정 이력</TabsTrigger>
+              <TabsTrigger value="analysis">{text.analysisResults}</TabsTrigger>
+              <TabsTrigger value="details">{text.details}</TabsTrigger>
+              <TabsTrigger value="corrections">{text.corrections}</TabsTrigger>
             </TabsList>
 
             {/* Analysis Tab */}
@@ -155,8 +232,8 @@ export default function ProjectDetailPage() {
                 {/* MOD Distribution Chart */}
                 <Card>
                   <CardHeader>
-                    <CardTitle>MOD 값 분포</CardTitle>
-                    <CardDescription>각 동작별 MOD 값</CardDescription>
+                    <CardTitle>{text.modDistribution}</CardTitle>
+                    <CardDescription>{text.modDistributionDesc}</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <ResponsiveContainer width="100%" height={300}>
@@ -174,8 +251,8 @@ export default function ProjectDetailPage() {
                 {/* Code Type Distribution */}
                 <Card>
                   <CardHeader>
-                    <CardTitle>코드 유형 분포</CardTitle>
-                    <CardDescription>MODAPTS 코드 유형별 비율</CardDescription>
+                    <CardTitle>{text.codeDistribution}</CardTitle>
+                    <CardDescription>{text.codeDistributionDesc}</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <ResponsiveContainer width="100%" height={300}>
@@ -206,21 +283,21 @@ export default function ProjectDetailPage() {
             <TabsContent value="details">
               <Card>
                 <CardHeader>
-                  <CardTitle>동작 이벤트 상세</CardTitle>
-                  <CardDescription>분석된 모든 동작 이벤트 목록</CardDescription>
+                  <CardTitle>{text.detailsList}</CardTitle>
+                  <CardDescription>{text.detailsListDesc}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-border/40">
-                          <th className="text-left py-3 px-4 font-semibold">순번</th>
-                          <th className="text-left py-3 px-4 font-semibold">코드</th>
-                          <th className="text-left py-3 px-4 font-semibold">MOD</th>
-                          <th className="text-left py-3 px-4 font-semibold">시간</th>
-                          <th className="text-left py-3 px-4 font-semibold">설명</th>
-                          <th className="text-left py-3 px-4 font-semibold">신뢰도</th>
-                          <th className="text-left py-3 px-4 font-semibold">작업</th>
+                          <th className="text-left py-3 px-4 font-semibold">{text.sequence}</th>
+                          <th className="text-left py-3 px-4 font-semibold">{text.code}</th>
+                          <th className="text-left py-3 px-4 font-semibold">{text.mod}</th>
+                          <th className="text-left py-3 px-4 font-semibold">{text.time}</th>
+                          <th className="text-left py-3 px-4 font-semibold">{text.description}</th>
+                          <th className="text-left py-3 px-4 font-semibold">{text.confidence}</th>
+                          <th className="text-left py-3 px-4 font-semibold">{text.action}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -256,8 +333,8 @@ export default function ProjectDetailPage() {
             <TabsContent value="corrections">
               <Card>
                 <CardHeader>
-                  <CardTitle>보정 이력</CardTitle>
-                  <CardDescription>수동 보정 기록</CardDescription>
+                  <CardTitle>{text.corrections}</CardTitle>
+                  <CardDescription>{text.correctionsDesc}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   {correctionsQuery.data && correctionsQuery.data.length > 0 ? (
@@ -271,14 +348,14 @@ export default function ProjectDetailPage() {
                               </p>
                               <p className="text-sm text-muted-foreground">{correction.reason}</p>
                             </div>
-                            <Badge variant="secondary">보정됨</Badge>
+                            <Badge variant="secondary">{text.corrected}</Badge>
                           </div>
                           {correction.comment && <p className="text-sm italic text-muted-foreground">{correction.comment}</p>}
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-muted-foreground text-center py-8">보정 이력이 없습니다</p>
+                    <p className="text-muted-foreground text-center py-8">{text.noCorrections}</p>
                   )}
                 </CardContent>
               </Card>
