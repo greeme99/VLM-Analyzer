@@ -1,5 +1,6 @@
 import React from "react";
 import { useTheme, getThemeDisplayName, type ThemeType } from "@/contexts/ThemeContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -11,6 +12,37 @@ import { Palette } from "lucide-react";
 
 export function ThemeSwitcher() {
   const { theme, setTheme, availableThemes } = useTheme();
+  const { language } = useLanguage();
+
+  const t = {
+    ko: {
+      selectTheme: "테마 선택",
+      light: "라이트",
+      dark: "다크",
+      grayBlue: "그레이 + 블루",
+    },
+    en: {
+      selectTheme: "Select Theme",
+      light: "Light",
+      dark: "Dark",
+      grayBlue: "Gray + Blue",
+    },
+  };
+
+  const text = t[language];
+
+  const getThemeName = (themeType: ThemeType) => {
+    switch (themeType) {
+      case "light":
+        return text.light;
+      case "dark":
+        return text.dark;
+      case "gray-blue":
+        return text.grayBlue;
+      default:
+        return themeType;
+    }
+  };
 
   return (
     <DropdownMenu>
@@ -19,10 +51,10 @@ export function ThemeSwitcher() {
           variant="outline"
           size="sm"
           className="gap-2"
-          title="테마 선택"
+          title={text.selectTheme}
         >
           <Palette className="h-4 w-4" />
-          <span className="hidden sm:inline">{getThemeDisplayName(theme as ThemeType)}</span>
+          <span className="hidden sm:inline">{getThemeName(theme as ThemeType)}</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
@@ -50,7 +82,7 @@ export function ThemeSwitcher() {
                         : "#3a4556",
                 }}
               />
-              <span>{getThemeDisplayName(t)}</span>
+              <span>{getThemeName(t)}</span>
               {theme === t && <span className="ml-auto">✓</span>}
             </div>
           </DropdownMenuItem>
