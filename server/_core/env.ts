@@ -7,4 +7,14 @@ export const ENV = {
   isProduction: process.env.NODE_ENV === "production",
   forgeApiUrl: process.env.BUILT_IN_FORGE_API_URL ?? "",
   forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? "",
+  // Firebase Configuration
+  firebaseProjectId: process.env.FIREBASE_PROJECT_ID ?? "",
+  firebasePrivateKeyId: process.env.FIREBASE_PRIVATE_KEY_ID ?? "",
+  firebasePrivateKey: process.env.FIREBASE_PRIVATE_KEY ?? "",
+  firebaseClientEmail: process.env.FIREBASE_CLIENT_EMAIL ?? "",
+  firebaseClientId: process.env.FIREBASE_CLIENT_ID ?? "",
+  firebaseAuthDomain: process.env.FIREBASE_AUTH_DOMAIN ?? "",
+  firebaseDatabaseUrl: process.env.FIREBASE_DATABASE_URL ?? "",
+  firebaseStorageBucket: process.env.FIREBASE_STORAGE_BUCKET ?? "",
+  firebaseWebApiKey: process.env.FIREBASE_WEB_API_KEY ?? "",
 };
