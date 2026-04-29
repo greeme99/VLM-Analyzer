@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { asc, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import { InsertUser, users, InsertProject, projects, InsertMotionEvent, motionEvents, InsertCorrection, corrections, InsertReport, reports, Project } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -89,4 +89,84 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+/**
+ * Project queries
+ */
+export async function createProject(data: InsertProject) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(projects).values(data);
+  return result;
+}
+
+export async function getProjectById(projectId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(projects).where(eq(projects.id, projectId)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function getUserProjects(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db.select().from(projects).where(eq(projects.userId, userId)).orderBy(desc(projects.createdAt));
+}
+
+export async function updateProjectStatus(projectId: number, status: Project["status"], data?: Partial<InsertProject>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const updateData: Record<string, unknown> = { status, updatedAt: new Date() };
+  if (data) Object.assign(updateData, data);
+  return await db.update(projects).set(updateData).where(eq(projects.id, projectId));
+}
+
+/**
+ * Motion Event queries
+ */
+export async function createMotionEvent(data: InsertMotionEvent) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.insert(motionEvents).values(data);
+}
+
+export async function getProjectMotionEvents(projectId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db.select().from(motionEvents).where(eq(motionEvents.projectId, projectId)).orderBy(asc(motionEvents.sequenceNumber));
+}
+
+export async function updateMotionEvent(eventId: number, data: Partial<InsertMotionEvent>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.update(motionEvents).set({ ...data, updatedAt: new Date() }).where(eq(motionEvents.id, eventId));
+}
+
+/**
+ * Correction queries
+ */
+export async function createCorrection(data: InsertCorrection) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.insert(corrections).values(data);
+}
+
+export async function getProjectCorrections(projectId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db.select().from(corrections).where(eq(corrections.projectId, projectId)).orderBy(desc(corrections.createdAt));
+}
+
+/**
+ * Report queries
+ */
+export async function createReport(data: InsertReport) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.insert(reports).values(data);
+}
+
+export async function getProjectReports(projectId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db.select().from(reports).where(eq(reports.projectId, projectId)).orderBy(desc(reports.generatedAt));
+}

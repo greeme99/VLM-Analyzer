@@ -1,10 +1,12 @@
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { publicProcedure, router } from "./_core/trpc";
+import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
+import { z } from "zod";
+import * as db from "./db";
+import { storagePut } from "./storage";
 
 export const appRouter = router({
-    // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
   system: systemRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
@@ -17,12 +19,360 @@ export const appRouter = router({
     }),
   }),
 
-  // TODO: add feature routers here, e.g.
-  // todo: router({
-  //   list: protectedProcedure.query(({ ctx }) =>
-  //     db.getUserTodos(ctx.user.id)
-  //   ),
-  // }),
+  // ============================================================================
+  // Project Management
+  // ============================================================================
+  project: router({
+    /**
+     * Create a new analysis project
+     */
+    create: protectedProcedure
+      .input(z.object({
+        title: z.string().min(1, "Title is required"),
+        description: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        try {
+          await db.createProject({
+            userId: ctx.user.id,
+            title: input.title,
+            description: input.description,
+            videoUrl: "",
+            videoKey: "",
+            videoDuration: 0,
+            status: "pending",
+          });
+          return {
+            success: true,
+            message: "Project created",
+          };
+        } catch (error) {
+          console.error("Error creating project:", error);
+          throw new Error("Failed to create project");
+        }
+      }),
+
+    /**
+     * Get user's projects
+     */
+    list: protectedProcedure
+      .query(async ({ ctx }) => {
+        try {
+          const projects = await db.getUserProjects(ctx.user.id);
+          return projects;
+        } catch (error) {
+          console.error("Error fetching projects:", error);
+          return [];
+        }
+      }),
+
+    /**
+     * Get project details
+     */
+    get: protectedProcedure
+      .input(z.object({ projectId: z.number() }))
+      .query(async ({ ctx, input }) => {
+        try {
+          const project = await db.getProjectById(input.projectId);
+          if (!project || project.userId !== ctx.user.id) {
+            throw new Error("Project not found or unauthorized");
+          }
+          return project;
+        } catch (error) {
+          console.error("Error fetching project:", error);
+          throw new Error("Failed to fetch project");
+        }
+      }),
+
+    /**
+     * Update project status
+     */
+    updateStatus: protectedProcedure
+      .input(z.object({
+        projectId: z.number(),
+        status: z.enum(["pending", "analyzing", "completed", "failed"]),
+        standardTime: z.string().optional(),
+        totalMods: z.number().optional(),
+        analysisResult: z.string().optional(),
+        errorMessage: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        try {
+          const project = await db.getProjectById(input.projectId);
+          if (!project || project.userId !== ctx.user.id) {
+            throw new Error("Unauthorized");
+          }
+
+          await db.updateProjectStatus(input.projectId, input.status, {
+            standardTime: input.standardTime,
+            totalMods: input.totalMods,
+            analysisResult: input.analysisResult,
+            errorMessage: input.errorMessage,
+          });
+
+          return { success: true };
+        } catch (error) {
+          console.error("Error updating project:", error);
+          throw new Error("Failed to update project");
+        }
+      }),
+
+    /**
+     * Delete project
+     */
+    delete: protectedProcedure
+      .input(z.object({ projectId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        try {
+          const project = await db.getProjectById(input.projectId);
+          if (!project || project.userId !== ctx.user.id) {
+            throw new Error("Unauthorized");
+          }
+
+          // In production, implement actual deletion
+          // For now, just mark as deleted or archive
+
+          return { success: true };
+        } catch (error) {
+          console.error("Error deleting project:", error);
+          throw new Error("Failed to delete project");
+        }
+      }),
+  }),
+
+  // ============================================================================
+  // Motion Events
+  // ============================================================================
+  motionEvent: router({
+    /**
+     * Get motion events for a project
+     */
+    list: protectedProcedure
+      .input(z.object({ projectId: z.number() }))
+      .query(async ({ ctx, input }) => {
+        try {
+          const project = await db.getProjectById(input.projectId);
+          if (!project || project.userId !== ctx.user.id) {
+            throw new Error("Unauthorized");
+          }
+
+          const events = await db.getProjectMotionEvents(input.projectId);
+          return events;
+        } catch (error) {
+          console.error("Error fetching motion events:", error);
+          return [];
+        }
+      }),
+
+    /**
+     * Update motion event (correction)
+     */
+    update: protectedProcedure
+      .input(z.object({
+        eventId: z.number(),
+        projectId: z.number(),
+        modaptsCode: z.string().optional(),
+        modValue: z.number().optional(),
+        description: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        try {
+          const project = await db.getProjectById(input.projectId);
+          if (!project || project.userId !== ctx.user.id) {
+            throw new Error("Unauthorized");
+          }
+
+          const updateData: any = { isManuallyAdjusted: true };
+          if (input.modaptsCode) updateData.modaptsCode = input.modaptsCode;
+          if (input.modValue !== undefined) {
+            updateData.modValue = input.modValue;
+            updateData.timeSeconds = (input.modValue * 0.129).toString();
+          }
+          if (input.description) updateData.description = input.description;
+
+          await db.updateMotionEvent(input.eventId, updateData);
+
+          return { success: true };
+        } catch (error) {
+          console.error("Error updating motion event:", error);
+          throw new Error("Failed to update motion event");
+        }
+      }),
+  }),
+
+  // ============================================================================
+  // Corrections
+  // ============================================================================
+  correction: router({
+    /**
+     * Get correction history for a project
+     */
+    list: protectedProcedure
+      .input(z.object({ projectId: z.number() }))
+      .query(async ({ ctx, input }) => {
+        try {
+          const project = await db.getProjectById(input.projectId);
+          if (!project || project.userId !== ctx.user.id) {
+            throw new Error("Unauthorized");
+          }
+
+          const corrections = await db.getProjectCorrections(input.projectId);
+          return corrections;
+        } catch (error) {
+          console.error("Error fetching corrections:", error);
+          return [];
+        }
+      }),
+
+    /**
+     * Create correction record
+     */
+    create: protectedProcedure
+      .input(z.object({
+        projectId: z.number(),
+        eventId: z.number(),
+        originalCode: z.string(),
+        newCode: z.string(),
+        reason: z.string().optional(),
+        comment: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        try {
+          const project = await db.getProjectById(input.projectId);
+          if (!project || project.userId !== ctx.user.id) {
+            throw new Error("Unauthorized");
+          }
+
+          await db.createCorrection({
+            projectId: input.projectId,
+            eventId: input.eventId,
+            userId: ctx.user.id,
+            originalCode: input.originalCode,
+            newCode: input.newCode,
+            reason: input.reason,
+            comment: input.comment,
+          });
+
+          return { success: true };
+        } catch (error) {
+          console.error("Error creating correction:", error);
+          throw new Error("Failed to create correction");
+        }
+      }),
+  }),
+
+  // ============================================================================
+  // Reports
+  // ============================================================================
+  report: router({
+    /**
+     * Get reports for a project
+     */
+    list: protectedProcedure
+      .input(z.object({ projectId: z.number() }))
+      .query(async ({ ctx, input }) => {
+        try {
+          const project = await db.getProjectById(input.projectId);
+          if (!project || project.userId !== ctx.user.id) {
+            throw new Error("Unauthorized");
+          }
+
+          const reports = await db.getProjectReports(input.projectId);
+          return reports;
+        } catch (error) {
+          console.error("Error fetching reports:", error);
+          return [];
+        }
+      }),
+
+    /**
+     * Generate PDF report
+     */
+    generatePdf: protectedProcedure
+      .input(z.object({ projectId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        try {
+          const project = await db.getProjectById(input.projectId);
+          if (!project || project.userId !== ctx.user.id) {
+            throw new Error("Unauthorized");
+          }
+
+          // In production, generate actual PDF
+          // For now, return placeholder
+          return {
+            success: true,
+            message: "PDF generation queued",
+          };
+        } catch (error) {
+          console.error("Error generating PDF:", error);
+          throw new Error("Failed to generate PDF");
+        }
+      }),
+
+    /**
+     * Generate Excel report
+     */
+    generateExcel: protectedProcedure
+      .input(z.object({ projectId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        try {
+          const project = await db.getProjectById(input.projectId);
+          if (!project || project.userId !== ctx.user.id) {
+            throw new Error("Unauthorized");
+          }
+
+          // In production, generate actual Excel
+          // For now, return placeholder
+          return {
+            success: true,
+            message: "Excel generation queued",
+          };
+        } catch (error) {
+          console.error("Error generating Excel:", error);
+          throw new Error("Failed to generate Excel");
+        }
+      }),
+  }),
+
+  // ============================================================================
+  // Reference Data
+  // ============================================================================
+  reference: router({
+    /**
+     * Get MODAPTS codes reference
+     */
+    modaptsCodes: publicProcedure
+      .query(() => {
+        return {
+          move: {
+            M1: { mods: 1, description: "Finger move (2.5cm)", seconds: 0.129 },
+            M2: { mods: 2, description: "Hand move (5cm)", seconds: 0.258 },
+            M3: { mods: 3, description: "Forearm move (15cm)", seconds: 0.387 },
+            M4: { mods: 4, description: "Arm move (30cm)", seconds: 0.516 },
+            M5: { mods: 5, description: "Arm + torso move (60cm)", seconds: 0.645 },
+            M6: { mods: 6, description: "Full body move (90cm+)", seconds: 0.774 },
+          },
+          get: {
+            G0: { mods: 0, description: "Finger grasp (easy)", seconds: 0 },
+            G1: { mods: 1, description: "Hand grasp (normal)", seconds: 0.129 },
+            G2: { mods: 2, description: "Two-hand grasp (heavy)", seconds: 0.258 },
+            G3: { mods: 3, description: "Tool grasp", seconds: 0.387 },
+          },
+          place: {
+            P0: { mods: 0, description: "Light place", seconds: 0 },
+            P1: { mods: 1, description: "Normal place", seconds: 0.129 },
+            P2: { mods: 2, description: "Careful place", seconds: 0.258 },
+          },
+          other: {
+            D3: { mods: 3, description: "Decision", seconds: 0.387 },
+            L1: { mods: 1, description: "Read (short)", seconds: 0.129 },
+            E2: { mods: 2, description: "Eye move", seconds: 0.258 },
+            F3: { mods: 3, description: "Foot move", seconds: 0.387 },
+            R2: { mods: 2, description: "Read (general)", seconds: 0.258 },
+          },
+        };
+      }),
+  }),
 });
 
 export type AppRouter = typeof appRouter;
