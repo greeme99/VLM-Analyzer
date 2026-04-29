@@ -59,3 +59,15 @@
 - [x] 프로젝트 체크포인트 생성
 - [x] 사용자 가이드 작성
 - [x] 배포 준비 및 최종 검증
+
+
+## Phase 9: 다중 테마 및 고도화 기능
+- [x] 다중 테마 선택 기능 (라이트, 다크, 그레이+블루)
+- [x] 테마 선택 UI 컴포넌트 구현
+- [x] 테마 설정 로컬스토리지 저장
+- [x] 단언어 선택 기능 강화 (한국어, 영어)
+- [x] PDF/Excel 보고서 라이브러리 통합 (pdfkit, xlsx)
+- [x] 실시간 분석 진행률 표시 (WebSocket/SSE)
+- [x] Google Firebase/Firestore 통합 (서버 및 DB 대체)
+- [x] Firebase Authentication 통합
+- [x] Firestore 데이터 마이그레이션 가이드
