@@ -80,3 +80,37 @@
 - [x] PDF/Excel 보고서 생성 구현
 - [x] vitest 단위 테스트 작성 및 검증 (34개 테스트 모두 통과)
 - [x] 최종 체크포인트 저장 및 배포 준비
+
+
+## Phase 11: Firebase Realtime Database 및 분석 대시보드 구축
+- [x] Firebase Realtime Database 리스너 모듈 구현
+- [x] 백엔드 분석 진행률 추적 로직 (4단계 프로세스)
+- [x] 프론트엔드 실시간 리스너 훅 (useAnalysisProgress, useUserActiveAnalysis)
+- [x] UI 진행률 표시 컴포넌트 (프로그레스 바, 예상 남은 시간)
+- [x] 분석 이력 데이터 수집 및 저장 (Firestore)
+- [x] 성능 통계 계산 로직 (성공률, 분석 시간, 신뢰도, 프레임 처리)
+- [x] 사용자 분석 데이터 추적 시스템
+- [x] 대시보드 tRPC 라우터 작성 (12개 프로시저)
+  - [x] getAnalysisHistory (분석 이력 조회)
+  - [x] filterAnalysisHistory (분석 이력 필터링)
+  - [x] getUserAnalytics (사용자 분석 통계)
+  - [x] getPerformanceMetrics (기간별 성능 통계)
+  - [x] getAnalyticsSummary (분석 통계 요약)
+  - [x] getDashboardData (대시보드 메인 데이터)
+  - [x] getSuccessRateStats (성공률 통계)
+  - [x] getAnalysisTimeStats (분석 시간 통계)
+  - [x] getConfidenceStats (신뢰도 통계)
+  - [x] getFrameProcessingStats (프레임 처리 통계)
+  - [x] getHourlyActivityStats (시간대별 활동 통계)
+  - [x] getDailyActivityStats (요일별 활동 통계)
+- [x] 대시보드 UI 컴포넌트 (Recharts 차트 기반)
+  - [x] 주요 통계 카드 (총 분석 수, 성공률, 평균 분석 시간, 평균 신뢰도)
+  - [x] 시간대별 분석 활동 (막대 차트)
+  - [x] 요일별 분석 활동 (막대 차트)
+  - [x] 신뢰도 분포 (원형 차트)
+  - [x] 성공률 추이 (프로그레스 바)
+  - [x] 프레임 처리 통계 (통계 카드)
+  - [x] 최근 분석 이력 (목록)
+- [x] 라우팅 통합 (/dashboard)
+- [x] 대시보드 테스트 작성 (dashboard.test.ts)
+- [x] Gemini API 테스트 재검증 (2/2 통과)

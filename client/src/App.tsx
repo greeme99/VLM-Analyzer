@@ -6,6 +6,7 @@ import Home from "@/pages/Home";
 import Upload from "@/pages/Upload";
 import Projects from "@/pages/Projects";
 import ProjectDetail from "@/pages/ProjectDetail";
+import Dashboard from "@/pages/Dashboard";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
@@ -18,6 +19,7 @@ function Router() {
       <Route path="/upload" component={Upload} />
       <Route path="/projects" component={Projects} />
       <Route path="/projects/:id" component={ProjectDetail} />
+      <Route path="/dashboard" component={Dashboard} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

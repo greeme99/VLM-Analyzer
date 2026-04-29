@@ -6,6 +6,7 @@ import { z } from "zod";
 import * as db from "./db";
 import { storagePut } from "./storage";
 import { analysisRouter } from "./routers_analysis";
+import { dashboardRouter } from "./routers_dashboard";
 
 export const appRouter = router({
   system: systemRouter,
@@ -520,6 +521,11 @@ export const appRouter = router({
   // Analysis (Gemini 2.5 Flash)
   // ============================================================================
   analysis: analysisRouter,
+
+  // ============================================================================
+  // Dashboard & Analytics
+  // ============================================================================
+  dashboard: dashboardRouter,
 });
 
 export type AppRouter = typeof appRouter;
