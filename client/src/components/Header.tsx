@@ -34,7 +34,7 @@ export function Header() {
           ? "bg-white border-gray-200"
           : theme === "dark"
             ? "bg-slate-950 border-slate-800"
-            : "bg-slate-900 border-slate-700"
+            : "bg-blue-100 border-blue-200"
       }`}
     >
       <div className="container mx-auto px-4 py-4">
@@ -60,7 +60,7 @@ export function Header() {
                       ? "text-gray-700 hover:bg-gray-100"
                       : theme === "dark"
                         ? "text-gray-300 hover:bg-slate-800"
-                        : "text-gray-300 hover:bg-slate-700"
+                        : "text-gray-700 hover:bg-blue-200"
                 }`}
               >
                 {item.label}
@@ -119,7 +119,7 @@ export function Header() {
                       ? "text-gray-700 hover:bg-gray-100"
                       : theme === "dark"
                         ? "text-gray-300 hover:bg-slate-800"
-                        : "text-gray-300 hover:bg-slate-700"
+                        : "text-gray-700 hover:bg-blue-200"
                 }`}
                 onClick={() => setMobileMenuOpen(false)}
               >
