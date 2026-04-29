@@ -440,10 +440,14 @@ class MotionAnalysisPipeline:
         sample_frames = [frames[i] for i in sample_indices]
         sample_frames_b64 = [frame_to_base64(resize_frame(f)) for f in sample_frames]
         
-        # Step 5: Get VLM analysis (placeholder - actual API call would go here)
-        print("[Pipeline] Analyzing with VLM (GPT-4V)...")
-        # In production, this would call the actual GPT-4V API
-        vlm_results = self._mock_vlm_analysis(motion_events)
+        # Step 5: Get VLM analysis using Gemini 2.5 Flash
+        print("[Pipeline] Analyzing with Gemini 2.5 Flash...")
+        vlm_results = self._analyze_with_gemini(motion_events, sample_frames_b64)
+        
+        # Fallback to mock if Gemini analysis fails
+        if not vlm_results:
+            print("[Pipeline] Gemini analysis failed, using mock analysis...")
+            vlm_results = self._mock_vlm_analysis(motion_events)
         
         # Step 6: Calculate standard time
         print("[Pipeline] Calculating standard time...")
